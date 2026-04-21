@@ -14,6 +14,10 @@ class Songs:
         self.filepath = ""
 
     def set_lyrics(self):
+        """
+        Sets the lyrics of the song: "Never Going to Give You Up"
+        """
+
         self.lyrics = """We're no strangers to love
         You know the rules and so do I
         A full commitment's what I'm thinking of
@@ -82,6 +86,9 @@ class Songs:
         Never gonna tell a lie and hurt you"""
 
     def return_lyrics(self):
+        """
+        Returns the String, self.lyrics that represent the lyrics of the song
+        """
         self.set_lyrics()
         return self.lyrics
 
