@@ -10,8 +10,17 @@ matplotlib.use("Qt5Agg")  # Use non-interactive backend
 
 
 class file_processesing:
+    """
+    It processes the files using the YIN-Algorithm. It accepts specifically .wav files
+    """
 
     def __init__(self, path):
+        """
+        It initializes the class and defines the filepath
+
+        Args:
+            path, a string representing the filepath
+        """
         # WAV file
         self.signal = path
         self.audio_frames = []
@@ -19,7 +28,8 @@ class file_processesing:
 
     def process_audio(self):
         """
-        It processes the audio into a series of audioframes.
+        It processes the audio into a series of audioframes, having a 50% overlap,
+        and implementing a hanning window to smooth out audio.
         """
         # Scans through the .wav file in read only mode
         with wave.open(self.signal, "rb") as f:
@@ -61,11 +71,13 @@ class file_processesing:
         print(f"Sample rate  : {self.sample_rate} Hz")
         print(f"Frame size   : {frame_size} samples")
         print(f"Num frames   : {len(windowed_frames)}")
-        pass
 
     def auto_correlation(self):
         """
         Applies the autocorrelation algothrim on a signal.
+
+        Returns:
+            all_corrected_frames, a list of all autocorrelated frames
         """
         all_corrected_frames = np.zeros(
             (len(self.audio_frames), self.audio_frames.shape[1])
@@ -87,6 +99,9 @@ class file_processesing:
         """
         Finds the pitch of the audio between the ranges of [50 , 1000] which represent the typical range
         of songs.
+
+        Returns:
+            pitch_guess, a list of npfloat64 arrays reprsenting the pitch
         """
         min_pitch = 50
         max_pitch = 1000
@@ -114,9 +129,18 @@ class file_processesing:
         for i, (f0, strength) in enumerate(pitch_guess[:]):
             print(f"Frame {i}: {f0:.1f} Hz  (ACF peak = {strength:.3f})")
 
-        return len(pitch_guess)
+        return pitch_guess
 
     def difference_function(self, frame):
+        """
+        A template difference function
+
+        Args:
+            frame, representing the specifc audioframe
+
+        Returns:
+            df, the difference between audioframe and the lag
+        """
         n = len(frame)
         df = np.zeros(n)
         df[0] = 0  # zero-lag difference is always 0 by definition
@@ -126,6 +150,16 @@ class file_processesing:
         return df
 
     def cmndf(self, df):
+        """
+        It goes across the min to max lags and sums up the difference between
+        the audio and the shifted audio.
+
+        args:
+            df, representing the entire audioframe
+
+        returns:
+            cmn, a normalized numpy array representing the cumultative differences
+        """
         n = len(df)
         cmn = np.zeros(n)
         cmn[0] = 1
@@ -139,6 +173,20 @@ class file_processesing:
         return cmn
 
     def find_dip(self, cmn, min_lag, max_lag, threshold):
+        """
+        Finding a dip below the freqeuency as part of the YIN algorithm
+
+        Args:
+            cmn, a numpy array representing the normalized cumlative difference
+            min_lag, an integer representing the minimum lag
+            max_lag, an integer representing the maximum lag
+            threshold, the threshold for the dip to be detected
+
+        Returns:
+            a tuple of the best_lag and the cumilative difference at the best_lag,
+            with best_lag being defined as the point where the cumilative difference
+            is minimized.
+        """
         # Walk through the search range and return the first lag that dips
         # below the threshold and is a local minimum
         for lag in range(min_lag, min(max_lag, len(cmn) - 1)):
@@ -153,20 +201,18 @@ class file_processesing:
         best_lag = best_offset + min_lag
         return best_lag, cmn[best_lag]
 
-    def signal_decomposition(self):
-        """
-        FFT
-        STFT/Spectrogram; Some library
-        MFCC
-        Bandpass Filter
-        Decompose signals into fundamental frequencies
-        Plot_signal or To_image
-        # uses matplot.pyplot() to plot the signals for debugging purposes
-        Save this image to be used in debugging
-        """
-        pass
-
     def refine_lag(self, cmn, lag):
+        """
+        Uses parabolic interpolation for finding the true dip between signals.
+        This will improve accuracy.
+
+        Args:
+            cmn, numpy array representing the cumulative difference
+            lag, an integer representing the lag index found in c
+
+        Return:
+            a double representing the interpolated value of the lag value
+        """
         # Parabolic interpolation for sub-sample accuracy (same as ACF version)
         if lag <= 0 or lag >= len(cmn) - 1:
             return float(lag)
@@ -177,12 +223,15 @@ class file_processesing:
         return lag + (y0 - y2) / denom
 
     def YIN_Algothrim(self):
+        """
+        Executes the full YIN Algorithm.
+        """
         pitch_track = []
         min_pitch = 50
-        max_pitch = 1000
+        max_pitch = 1200
         min_lag = int(self.sample_rate / max_pitch)
         max_lag = int(self.sample_rate / min_pitch)
-        YIN_THRESHOLD = 0.4
+        YIN_THRESHOLD = 0.2
         for i in range(len(self.audio_frames)):
             frame = self.audio_frames[i]
 
@@ -205,10 +254,6 @@ class file_processesing:
         if voiced:
             print(f"Pitch range    : {min(voiced):.1f} – {max(voiced):.1f} Hz")
 
-        return "processed"
-
-    def plotter(self):
-        pass
 
 Process1 = file_processesing("NeverGonnaGiveYouUp.wav")
 Process1.process_audio()
