@@ -1,9 +1,26 @@
-from time import time
 import tkinter as tk
 from tkinter import ttk
-from PIL import Image, ImageTk
+import threading
+import time
+from pathlib import Path
+import numpy as np
+from scipy import signal as sg
+import sounddevice as sd
+import soundfile as sf
+import random
 
+# Get the absolute paths for project directories
+SCRIPT_DIR = Path(__file__).parent.parent
+SOUNDS_DIR = SCRIPT_DIR / "Sounds"
+LYRICS_FILE = SCRIPT_DIR / "Figures" / "Assets" / "lyrics.txt"
+SONG_FILE = SOUNDS_DIR / "NeverGonnaGiveYouUp.wav"
 
+# Try to import PIL for background image
+try:
+    from PIL import Image, ImageTk
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
 # View Begins Here:
 class KaraokeView(tk.Tk):
     """
@@ -20,6 +37,8 @@ class KaraokeView(tk.Tk):
         super().__init__()
         self.title("Karaoke App")
         self.geometry("800x600")
+        self.controller = None
+        self.recording = False
         self.setup_background()
         self.create_widgets()
 
@@ -27,12 +46,31 @@ class KaraokeView(tk.Tk):
         """
         It should set the background to the image
         """
-        image = Image.open("Figures1.jpg")
-        image = image.resize((800, 600))
-        self.bg_image = ImageTk.PhotoImage(image)
-
-        self.bg_label = tk.Label(self, image=self.bg_image)
-        self.bg_label.place(relwidth=1, relheight=1)
+        if HAS_PIL:
+            try:
+                # Try multiple possible background image locations
+                bg_paths = [
+                    SCRIPT_DIR / "Figures1.jpg",
+                    Path(__file__).parent / "Figures1.jpg",
+                    Path("Figures1.jpg")
+                ]
+                
+                for path in bg_paths:
+                    if path.exists():
+                        image = Image.open(str(path))
+                        image = image.resize((800, 600))
+                        self.bg_image = ImageTk.PhotoImage(image)
+                        self.bg_label = tk.Label(self, image=self.bg_image)
+                        self.bg_label.place(relwidth=1, relheight=1)
+                        return
+                
+                # If no image found, set colored background
+                self.configure(bg="#1a1a1a")
+            except Exception as e:
+                print(f"Warning: Could not load background image: {e}")
+                self.configure(bg="#1a1a1a")
+        else:
+            self.configure(bg="#1a1a1a")
 
     def create_widgets(self):
         """
@@ -44,16 +82,16 @@ class KaraokeView(tk.Tk):
         - Score Label
         """
         # Title
-        self.title = tk.Label(
+        title_label = tk.Label(
             self, text="Karaoke App", font=("Papyrus", 24), bg="black", fg="white"
         )
-        self.title.pack(pady=10)
+        title_label.pack(pady=10)
 
         # Song selection (MVP = one song)
-        self.song_label = tk.Label(
+        song_label = tk.Label(
             self, text="Song: Never Gonna Give You Up", bg="black", fg="white"
         )
-        self.song_label.pack()
+        song_label.pack()
 
         # Start/Stop button
         self.record_btn = ttk.Button(
@@ -73,16 +111,19 @@ class KaraokeView(tk.Tk):
 
     def toggle_recording(self):
         """
-        Sends a command to the controller to stop recording
+        Sends a command to the controller to start/stop recording
         """
-        self.controller.toggle_recording()
+        if self.controller:
+            self.controller.toggle_recording()
 
     def update_lyrics(self, text):
         """
         Updates the lyrics in real time
         """
+        self.lyrics_box.config(state=tk.NORMAL)
         self.lyrics_box.delete("1.0", tk.END)
         self.lyrics_box.insert(tk.END, text)
+        self.lyrics_box.config(state=tk.DISABLED)
 
     def update_score(self, score):
         """
@@ -92,7 +133,6 @@ class KaraokeView(tk.Tk):
 
 
 # Controller Begins Here:
-import threading
 
 
 class KaraokeController:
@@ -102,11 +142,10 @@ class KaraokeController:
     """
 
     def __init__(self, model, view):
-
         self.model = model
         self.view = view
         self.recording = False
-
+        self.view.controller = self
         self.view.update_lyrics(self.model.load_lyrics())
 
     def toggle_recording(self):
@@ -114,15 +153,90 @@ class KaraokeController:
         It turns on and off recording. Switches the recording/scoring loop.
         """
         if not self.recording:
-
+            # Start recording
             self.recording = True
-            self.view.record_btn.config(text="Stop Recording")
+            self.view.recording = True
+            self.view.record_btn.config(state=tk.DISABLED)
+            
+            # Start in a separate thread to avoid blocking UI
+            record_thread = threading.Thread(target=self._do_recording)
+            record_thread.daemon = True
+            record_thread.start()
         else:
-
+            # Stop recording
             self.recording = False
-            self.view.record_btn.config(text="Start Recording")
-            self.model.stop_audio()
-            # self.view.update_score(0)  # Reset score on stop
+            self.view.recording = False
+            sd.stop()
+            self.view.record_btn.config(state=tk.NORMAL, text="Start Recording")
+    
+    def _do_recording(self):
+        """
+        Perform the actual recording in a background thread
+        """
+        try:
+            # Volume controls for mixed playback (adjust these values: 0.0 to 1.0)
+            song_volume = 0.3  # Reduce song volume
+            rec_volume = 1.0   # Recording volume
+            
+            # Load song
+            song_data, fs_song = sf.read(str(SONG_FILE), dtype='float32')
+            
+            # Convert stereo to mono if needed
+            if song_data.ndim > 1:
+                song_data = song_data[:, 0]
+            
+            # Resample if necessary
+            if fs_song != self.model.fs:
+                song_resampled = sg.resample(song_data, int(len(song_data) * self.model.fs / fs_song))
+            else:
+                song_resampled = song_data
+            
+            duration = len(song_resampled) / self.model.fs
+            songaudio = song_resampled[:int(duration * self.model.fs)]
+            
+            print(f"Recording for {duration:.1f} seconds... Speak into your microphone while the song plays.")
+            
+            # Play the song and record simultaneously
+            sd.play(songaudio, self.model.fs)
+            recording = sd.rec(int(duration * self.model.fs), samplerate=self.model.fs, channels=1)
+            sd.wait()  # Wait until recording finishes
+            
+            # Save recording
+            SOUNDS_DIR.mkdir(parents=True, exist_ok=True)
+            sf.write(str(SOUNDS_DIR / 'recorded_audio.wav'), recording, self.model.fs)
+            print("Recording saved as 'recorded_audio.wav'")
+            
+            # Mix audio
+            rec_flat = recording.flatten()
+            if len(rec_flat) > len(songaudio):
+                rec_flat = rec_flat[:len(songaudio)]
+            elif len(rec_flat) < len(songaudio):
+                songaudio = songaudio[:len(rec_flat)]
+            
+            mixed_audio = (rec_volume * rec_flat + song_volume * songaudio) / 2
+            
+            # Normalize to prevent clipping
+            max_val = np.max(np.abs(mixed_audio))
+            if max_val > 1.0:
+                mixed_audio = mixed_audio / max_val
+            
+            print("Playing mixed audio (recorded voice + backing track)...")
+            sd.play(mixed_audio, self.model.fs)
+            sd.wait()
+            print("Playback complete")
+            
+            # Calculate and update score
+            score = self.model.calculate_score()
+            self.view.update_score(score)
+            
+        except Exception as e:
+            print(f"Error during recording: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            self.recording = False
+            self.view.recording = False
+            self.view.record_btn.config(state=tk.NORMAL, text="Start Recording")
 
     def start_karaoke(self):
         """
@@ -130,8 +244,6 @@ class KaraokeController:
         """
         self.model.play_audio()
         # Placeholder scoring loop
-        import time
-
         while self.recording:
             score = self.model.calculate_score()
             self.view.update_score(score)
@@ -140,9 +252,7 @@ class KaraokeController:
     # Model Begins Here:
 
 
-import sounddevice as sd
-import soundfile as sf
-import random
+
 
 
 class KaraokeModel:
@@ -151,18 +261,41 @@ class KaraokeModel:
     """
 
     def __init__(self):
-        self.song_path = "NeverGonnaGiveYouUp.wav"
-        self.lyrics_path = "lyrics.txt"
-        self.data, self.fs = sf.read(self.song_path, dtype="float32")
-        # Convert stereo → mono if needed
-        if self.data.ndim > 1:
-            self.data = self.data[:, 0]
+        try:
+            # Load song with correct path
+            if not SONG_FILE.exists():
+                print(f"Warning: Song file not found at {SONG_FILE}")
+                # Try alternative path
+                alt_path = SCRIPT_DIR / "Sounds" / "NeverGonnaGiveYouUp.wav"
+                if alt_path.exists():
+                    self.data, self.fs = sf.read(str(alt_path), dtype="float32")
+                else:
+                    raise FileNotFoundError(f"Song file not found at {SONG_FILE} or {alt_path}")
+            else:
+                self.data, self.fs = sf.read(str(SONG_FILE), dtype="float32")
+            
+            # Convert stereo → mono if needed
+            if self.data.ndim > 1:
+                self.data = self.data[:, 0]
+            
+            print(f"✓ Loaded song: {SONG_FILE}")
+            print(f"✓ Sample rate: {self.fs} Hz")
+            print(f"✓ Duration: {len(self.data) / self.fs:.2f} seconds")
+            
+        except Exception as e:
+            print(f"Error loading song: {e}")
+            # Create dummy data for testing
+            self.fs = 44100
+            self.data = np.zeros(self.fs * 2)  # 2 seconds of silence
 
     def play_audio(self):
         """
         Plays the preloaded audio using sounddevice
         """
-        sd.play(self.data, self.fs)
+        try:
+            sd.play(self.data, self.fs)
+        except Exception as e:
+            print(f"Error playing audio: {e}")
 
     def stop_audio(self):
         """
@@ -174,8 +307,18 @@ class KaraokeModel:
         """
         Loads the lyrics
         """
-        with open(self.lyrics_path, "r") as f:
-            return f.read()
+        try:
+            if not LYRICS_FILE.exists():
+                print(f"Warning: Lyrics file not found at {LYRICS_FILE}")
+                return "No lyrics file found. Add lyrics.txt to Figures/Assets/"
+            
+            with open(LYRICS_FILE, "r") as f:
+                lyrics = f.read()
+                print(f"✓ Loaded lyrics from {LYRICS_FILE}")
+                return lyrics
+        except Exception as e:
+            print(f"Error loading lyrics: {e}")
+            return f"Error loading lyrics: {str(e)}"
 
     def calculate_score(self):
         """
@@ -186,31 +329,42 @@ class KaraokeModel:
         return random.randint(50, 100)
 
 
-model = KaraokeModel()
-# Test lyrics loading
-lyrics = model.load_lyrics()
-print("Lyrics loaded:\n", lyrics[:100])  # print first 100 chars
+# ============================================================================
+# MAIN - Application Entry Point
+# ============================================================================
 
-# Test audio playback
-print("Playing song...")
-model.play_audio()  # did I import sounddevice as sd?
 
-# Test scoring
-print("Score:", model.calculate_score())
+if __name__ == "__main__":
+    """
+    Main entry point for the Karaoke application.
+    
+    Initializes the Model, View, and Controller in the MVC architecture
+    and starts the tkinter event loop.
+    """
+    try:
+        print("\n" + "="*60)
+        print("🎤 Karaoke Application Starting 🎤")
+        print("="*60)
+        
+        # Create model (loads audio and lyrics)
+        print("\nLoading audio and lyrics...")
+        model = KaraokeModel()
+        
+        # Create view (UI)
+        print("Initializing UI...")
+        view = KaraokeView()
+        
+        # Create controller (connects Model and View)
+        print("Setting up controller...")
+        controller = KaraokeController(model, view)
+        
+        # Start the application
+        print("\n✓ Karaoke application ready!")
+        print("="*60 + "\n")
+        view.mainloop()
+        
+    except Exception as e:
+        print(f"\n❌ Fatal error: {str(e)}")
+        import traceback
+        traceback.print_exc()
 
-###################
-
-model = KaraokeModel()
-
-print("Lyrics loaded:\n", model.load_lyrics()[:100])
-
-print("Playing song...")
-model.play_audio()
-
-print("Score:", model.calculate_score())
-
-######## Testing Screen
-
-# This is how you actually run the app
-screen = KaraokeView()
-screen.mainloop()
