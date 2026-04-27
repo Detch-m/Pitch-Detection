@@ -4,10 +4,7 @@ The goal of this algorithm is to find the pitch and sync it to a file.
 
 import numpy as np
 import librosa
-from librosa.sequence import dtw
 import matplotlib.pyplot as plt
-from scipy.signal import medfilt
-from scipy.signal import butter, filtfilt
 
 
 class File_processing:
@@ -22,22 +19,32 @@ class File_processing:
         self.user_pitch = None
         self.alignment_path = None
 
-    def extract_pitch(self, audio_file):
+    def extract_pitch(self, audio_file, sensitivity=0.1):
         """
         It recieves the file name of the audio and returns a nparray of the pitches.
         This program ses a sample rate of 22050 and other defaults to Librosa's piptrack
         method. It has a frequency range of 60 to 1000, which is the human vocal range.
+        It uses a threshold to identifying singing moments at 0.1 for voice probability.
+        It implments the probalistic yin algorithm to detect pitch. This method is highly
+        resistant to octave error making it ideal for extracting karaoke singing.
 
         Args:
             audio_file, a String representing the name of the audiofile
+            sensitivity, an float representing the sensitivity of the pyin() algorithm
+                        by default this value is set to 0.1
 
         Returns:
             pitch_track, a numpy array of the pitches in the track
         """
 
         audio, sample_rate = librosa.load(audio_file)
-        f0 = librosa.yin(audio, sr=sample_rate, fmin=60.0, fmax=1000.0)
-        return f0
+        pitch_track, voiced_flag, voiced_probs = librosa.pyin(
+            y=audio, sr=sample_rate, fmin=60.0, fmax=1000.0
+        )
+        pitch_track[~voiced_flag] = np.nan
+        pitch_track[voiced_probs < 0.1] = np.nan
+
+        return pitch_track
 
     def process_files(self):
         """
@@ -57,42 +64,64 @@ class File_processing:
         self.user_pitch = self.user_pitch[0:min_frames]
 
     def hz_to_midi(self, f):
+        """
+        It takes in a frequency and returns the midi score for that frequency.
+        A midi score is a semitone unit of measurement with A4 (440 Hz) equalling
+        69 midi score as a standard
+
+        Args:
+            f, a np
+
+        Returns:
+            midi, representing the midi score
+        """
         return 12 * np.log2(f / 440) + 69
 
-    # ---------------------------
-    # Generous pitch scoring
-    # ---------------------------
-    def pitch_score_generous(self):
-        scores = []
+    def pitch_score(self, level=0):
+        """
+        A pitch based scoring system where there is two sensitivies for two levels of users.
+        The easy level allows for 1, 2, 5, 12 MIDI-score as error ranges for score deductions. 
+        This is very generous and meant to exist for beginner karaoke users. 
+        The hard level allows for 0.25, 0.5, 1, 2 MIDI-score as error ranges, which are meant for
+        quarter, half, a full-semitone, or two semitones or errors. This is meant for very confident
+        singers in their pitch.
 
-        for ref_p, user_p in zip(self.ref_pitch, self.user_pitch):
-            if np.isnan(ref_p) or np.isnan(user_p):
+        Args:
+            level, an integer 0 or 1, which represents the sensitivity of the scoring system
+                and harshness of the program. With 0 being easy and 1 being for expert singers.
+                By default is is 0, which is for easy.
+
+        Returns:
+            A float representing the mean score within the audioframe
+        """
+        scores = []  # pylint: disable=redefined-outer-name
+        sensitivity_hard = [0.25, 0.5, 1, 2]
+        sensitivity_easy = [1, 2, 5, 12]
+        sensitivity_level = [sensitivity_easy, sensitivity_hard]
+        for i, reference_pitch in enumerate(self.ref_pitch):
+            user_pitch = self.user_pitch[i]
+            if np.isnan(reference_pitch) or np.isnan(user_pitch):
                 continue
-
-            error = abs(self.hz_to_midi(ref_p) - self.hz_to_midi(user_p))
-
-            # --- GENEROUS TOLERANCE MODEL ---
-            if error < 1:
+            error = abs(self.hz_to_midi(reference_pitch) - self.hz_to_midi(user_pitch))
+            if error < sensitivity_level[level][0]:
                 score = 100  # basically perfect
-            elif error < 3:
-                score = 90  # good
-            elif error < 5:
-                score = 85  # great
-            elif error < 12:
-                score = 75  # very off
+            elif error < sensitivity_level[level][1]:
+                score = 90  # great
+            elif error < sensitivity_level[level][2]:
+                score = 85  # good
+            elif error < sensitivity_level[level][3]:
+                score = 75  # solid
             else:
-                score = 75  # very off
-
+                score = 50  # off
             scores.append(score)
-
-        return float(np.mean(scores)) if len(scores) > 0 else 0
+        return float(np.mean(scores))
 
     # ---------------------------
     # 6. Final score
     # ---------------------------
     def final_score(self):
-        pitch = self.pitch_score_generous()
-        print("pitch", self.pitch_score_generous())
+        pitch = self.pitch_score()
+        print("pitch", self.pitch_score())
         final = pitch
         return final
 
@@ -116,27 +145,18 @@ class File_processing:
             ref_aligned.append(ref_p)
             user_aligned.append(user_p)
 
-            # Compute per-frame pitch score
-            if not np.isnan(ref_p) and not np.isnan(user_p):
-                error = abs(self.hz_to_cents(ref_p) - self.hz_to_cents(user_p))
-                score = np.exp(-error / 50) * 100
-            else:
-                score = 0
-
+        # Compute per-frame pitch score
+        if not np.isnan(ref_p) and not np.isnan(user_p):
+            error = abs(self.hz_to_cents(ref_p) - self.hz_to_cents(user_p))
+            score = np.exp(-error / 50) * 100
+        else:
+            score = 0
             frame_scores.append(score)
 
         ref_aligned = np.array(ref_aligned)
         user_aligned = np.array(user_aligned)
         frame_scores = np.array(frame_scores)
         time = np.arange(len(ref_aligned))
-        """
-        """
-        # ---- Cumulative logic ----
-        # Sliding window average
-        cumulative = np.zeros_like(frame_scores)
-        for i in range(len(frame_scores)):
-            start = max(0, i)
-            cumulative[i] = np.mean(frame_scores[start : i + 1])
         """
 
         time = np.arange(len(self.user_pitch)) * (265) / (len(self.user_pitch))
@@ -178,8 +198,3 @@ processor.align_tracks()
 scores = processor.final_score()
 print(scores)
 processor.plot_results()
-
-
-# Observation, the song ends but the user is not singing.
-
-# If a pause is less than 5 seconds, it does not count .
