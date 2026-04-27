@@ -1,7 +1,3 @@
-"""
-The goal of this algorithm is to find the pitch and sync it to a file.
-"""
-
 import numpy as np
 import librosa
 import matplotlib.pyplot as plt
@@ -121,12 +117,6 @@ class PitchScoring:
             scores.append(score)
         return float(np.mean(scores))
 
-    def final_score(self):
-        """
-        Returns the pitch score as the final score.
-        """
-        return self.pitch_score()
-
     def plot_results(self):
         """
         Creates a plot of midi-score, time (in seconds) graph of the singer.
@@ -146,14 +136,13 @@ class PitchScoring:
         plt.show()
 
 
-processor = PitchScoring(
-    "I Can't Help Falling In Love With You - Elvis Presley.mp4", "Recording.wav"
-)
-processor = PitchScoring("PerfectVocals_2.wav", "Itim_Perfect.wav")
+# Users should change the "user" section to test their attempt on the Song "Perfect"
+# If the reference song and user section can both be swapped for any .wav file or .mp4 file
 
-# processor = PitchScoring("Perfect_Vocals.wav", "PerfectVocals_2.wav")
+# reference             # user
+processor = PitchScoring("PerfectVocals_2.wav", "Itim_Perfect.wav")
 processor.process_files()
 processor.align_tracks()
-scores = processor.final_score()
+scores = processor.pitch_score(level=0)
 print(scores)
 processor.plot_results()
