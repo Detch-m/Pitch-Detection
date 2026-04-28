@@ -19,7 +19,7 @@ import soundfile as sf
 from karaoke_scorer import PitchScoring
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-FIGURES_DIR = PROJECT_ROOT / "Pitch-Detection" / "New Figures"
+FIGURES_DIR = PROJECT_ROOT / "Pitch-Detection" / "Songs"
 RECORDING_FILE = PROJECT_ROOT / "recording.wav"
 SUPPORTED_EXTENSIONS = [".mp4"]
 
@@ -165,10 +165,7 @@ class KaraokeModel:  # pylint: disable=too-many-instance-attributes
             The calculated score as a float, or None if the calculation fails.
         """
         try:
-            scorer = PitchScoring(
-                ref_file=str(self.selected_path),
-                user_file=str(RECORDING_FILE)
-            )
+            scorer = PitchScoring(str(self.selected_path),str(RECORDING_FILE))
 
             scorer.process_files("pYIN")
             scorer.align_tracks()
@@ -190,10 +187,7 @@ class KaraokeModel:  # pylint: disable=too-many-instance-attributes
             return False
 
         try:
-            scorer = PitchScoring(
-                ref_file=str(self.selected_path),
-                user_file=str(RECORDING_FILE)
-            )
+            scorer = PitchScoring(str(self.selected_path),str(RECORDING_FILE))
             scorer.plot_results()
             return True
             
