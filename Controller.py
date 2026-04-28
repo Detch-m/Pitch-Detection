@@ -178,7 +178,7 @@ def on_stop(self) -> None:
         self.view.record_button.setText("Record")
         self.view.set_status("Ready")
         self.view.clear_video()
-        
+
 def on_record(self) -> None:
         """Start or stop recording the user's voice while the song plays."""
         if self.is_recording:
@@ -220,3 +220,46 @@ def _stop_recording(self) -> None:
         self.record_paused = False
         self.view.record_button.setText("Record")
         self.view.set_status("Recording saved")
+        
+def on_playback_recording(self) -> None:
+        """Play the selected video together with the user's saved recording from the start.
+
+        Restarts the song and video from the beginning to ensure full playback with lyrics.
+        The recorded vocal track is mixed with the original MP4 audio using balanced gains
+        so both background music and voice are audible.
+        """
+        if not self.model.has_recording():
+            self.view.set_status("No recording available")
+            return
+        if self.model.selected_path is None:
+            self.view.set_status("Select a song before playback")
+            return
+        if self.is_playing or self.is_recording or self.is_paused:
+            self.on_stop()
+        self.view.clear_video()
+        self.view.set_status("Select a song to start video")
+        if not self.model.load_audio_track():
+            self.view.set_status("Unable to load audio track")
+            return
+        self.playback_position_ms = 0
+        if not self._open_video_capture(self.playback_position_ms):
+            return
+        self.seek_start_ms = self.playback_position_ms
+        self.is_playing = True
+        self.is_paused = False
+        self.view.play_button.setText("Pause")
+        self.view.timer.start(100)
+        mixed_audio = self._prepare_combined_audio(self.playback_position_ms)
+        if mixed_audio is None:
+            self.view.set_status("Unable to play combined audio")
+            return
+        try:
+            sd.play(mixed_audio, self.model.sample_rate)
+        except Exception:
+            self.view.set_status("Playback of recording failed")
+            return
+        self.play_start_time = time.monotonic()
+        self.video_timer.start(self.video_frame_interval)
+        self.view.update_progress(0, self.video_length_ms)
+        self._show_next_frame()
+        self.view.set_status("Playing recorded performance")
