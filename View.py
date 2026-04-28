@@ -149,3 +149,47 @@ def set_status(self, text: str) -> None:
         """
         """Update the status label text."""
         self.status_label.setText(text)
+        
+def load_video(self, path: str) -> None:
+        """Show a placeholder for the selected video file.
+
+        Args:
+            path (str): The path to the video file.
+
+        Returns:
+            None
+        """
+        """Show a placeholder for the selected video file."""
+        self.video_label.setText(f"Loaded: {Path(path).name}")
+        self.video_label.setStyleSheet("background-color: black; color: white;")
+
+def set_video_frame(self, frame: np.ndarray) -> None:
+        """Render a video frame into the video display widget.
+
+        Args:
+            frame (np.ndarray): The video frame as a numpy array.
+
+        Returns:
+            None
+        """
+        """Render a video frame into the video display widget."""
+        target_width = self.video_label.width() or frame.shape[1]
+        target_height = self.video_label.height() or frame.shape[0]
+        if frame.shape[1] != target_width or frame.shape[0] != target_height:
+            frame = cv2.resize(frame, (target_width, target_height), interpolation=cv2.INTER_AREA)
+        height, width, channels = frame.shape
+        bytes_per_line = channels * width
+        image = QImage(frame.data, width, height, bytes_per_line, QImage.Format.Format_BGR888)
+        pixmap = QPixmap.fromImage(image)
+        self.video_label.setPixmap(pixmap)
+
+def clear_video(self) -> None:
+        """Clear the video display and show the default placeholder.
+
+        Returns:
+            None
+        """
+        """Clear the video display and show the default placeholder."""
+        self.video_label.setPixmap(QPixmap())
+        self.video_label.setText("Select a song to load video")
+        self.video_label.setStyleSheet("background-color: black; color: white;")
