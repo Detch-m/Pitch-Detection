@@ -31,3 +31,21 @@ class KaraokeView(QWidget):
     playback_pressed = pyqtSignal()
     song_selected = pyqtSignal(str)
 
+def __init__(self, model: KaraokeModel):
+        """Initialize the karaoke view with the model.
+
+        Args:
+            model (KaraokeModel): The model instance for the view.
+
+        Returns:
+            None
+        """
+        super().__init__()
+        self.model = model
+        self.setWindowTitle("Mister Microphone")
+        self.setGeometry(100, 100, 1200, 900)
+        self.video_label = QLabel("Select a song to load video")
+        self.video_label.setAlignment(Qt.AlignCenter)
+        self.video_label.setStyleSheet("background-color: black; color: white;")
+        self._build_ui()
+        self.timer = QTimer(self)
