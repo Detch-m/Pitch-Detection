@@ -5,6 +5,8 @@ Karaoke app model and audio capture helpers.
 This module provides the karaoke data model for song selection,
 audio extraction, recording persistence, and microphone capture.
 """
+# pylint: disable=invalid-name,import-error
+
 from pathlib import Path
 from typing import List, Optional
 import subprocess
@@ -15,12 +17,12 @@ import sounddevice as sd
 import soundfile as sf
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-FIGURES_DIR = PROJECT_ROOT / 'Pitch-Detection' / 'New Figures'
-RECORDING_FILE = PROJECT_ROOT / 'recording.wav'
-SUPPORTED_EXTENSIONS = ['.mp4']
+FIGURES_DIR = PROJECT_ROOT / "Pitch-Detection" / "New Figures"
+RECORDING_FILE = PROJECT_ROOT / "recording.wav"
+SUPPORTED_EXTENSIONS = [".mp4"]
 
 
-class KaraokeModel:
+class KaraokeModel:  # pylint: disable=too-many-instance-attributes
     """Model that tracks song selection, audio data, and recorded vocals."""
 
     def __init__(self, figures_dir: Path = FIGURES_DIR):
@@ -95,16 +97,16 @@ class KaraokeModel:
             ffmpeg_exe = ffmpeg.get_ffmpeg_exe()
             command = [
                 ffmpeg_exe,
-                '-i',
+                "-i",
                 str(self.selected_path),
-                '-vn',
-                '-ac',
-                '2',
-                '-ar',
+                "-vn",
+                "-ac",
+                "2",
+                "-ar",
                 str(self.recording_rate),
-                '-f',
-                'f32le',
-                '-',
+                "-f",
+                "f32le",
+                "-",
             ]
             result = subprocess.run(
                 command,
@@ -122,12 +124,14 @@ class KaraokeModel:
             self.audio_data = audio
             self.sample_rate = self.recording_rate
             return True
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             self.audio_data = None
             self.sample_rate = 0
             return False
 
-    def save_recording(self, recording: np.ndarray, path: Optional[Path] = None) -> bool:
+    def save_recording(
+        self, recording: np.ndarray, path: Optional[Path] = None
+    ) -> bool:
         """
         Summary:
             Save the recorded vocals to a WAV file and cache the data.
@@ -144,7 +148,7 @@ class KaraokeModel:
             sf.write(str(target_path), recording, self.recording_rate)
             self.recorded_audio = recording
             return True
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             return False
 
     def has_recording(self) -> bool:
@@ -232,7 +236,7 @@ class AudioRecorder:
             self._stream = None
         self._paused = False
         if not self._frames:
-            return np.empty((0, self.channels), dtype='float32')
+            return np.empty((0, self.channels), dtype="float32")
         return np.concatenate(self._frames, axis=0)
 
     def _callback(self, indata, _frames, _time, _status) -> None:

@@ -1,3 +1,6 @@
+"""Unit tests for karaoke MVC application components."""
+# pylint: disable=import-error,wrong-import-position,missing-class-docstring,missing-function-docstring,protected-access,unused-argument
+
 import os
 import sys
 import tempfile
@@ -12,7 +15,12 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from karaoke_gui_clean import KaraokeModel, KaraokeView, KaraokeController, AudioRecorder
+from karaoke_gui_clean import (
+    KaraokeModel,
+    KaraokeView,
+    KaraokeController,
+    AudioRecorder,
+)
 from PyQt5.QtWidgets import QApplication
 
 
@@ -80,7 +88,9 @@ class KaraokeControllerTest(unittest.TestCase):
 
     def test_on_play_without_selection_sets_status(self):
         self.controller.on_play()
-        self.assertEqual(self.view.status_label.text(), "Select a song before pressing Play")
+        self.assertEqual(
+            self.view.status_label.text(), "Select a song before pressing Play"
+        )
 
     def test_on_playback_recording_without_recording_sets_status(self):
         self.controller.on_playback_recording()
@@ -175,7 +185,9 @@ class KaraokeControllerTest(unittest.TestCase):
         stream_instance.close.assert_called_once()
 
     @patch("karaoke_gui_clean.sd.play")
-    def test_on_playback_recording_mixes_original_and_recorded_audio(self, sd_play_mock):
+    def test_on_playback_recording_mixes_original_and_recorded_audio(
+        self, sd_play_mock
+    ):
         self.model.selected_path = Path("/tmp/song.mp4")
         self.model.selected_song = "song.mp4"
         self.model.audio_data = np.zeros((44100 * 4, 2), dtype=np.float32)
@@ -195,7 +207,9 @@ class KaraokeControllerTest(unittest.TestCase):
 
         def frame_side_effect():
             playback_order.append("frame")
-            self.assertTrue(sd_play_mock.called, "Audio should start before the first video frame")
+            self.assertTrue(
+                sd_play_mock.called, "Audio should start before the first video frame"
+            )
 
         self.controller._show_next_frame = MagicMock(side_effect=frame_side_effect)
 
@@ -209,12 +223,14 @@ class KaraokeControllerTest(unittest.TestCase):
         mixed_audio, sample_rate = sd_play_mock.call_args[0]
         self.assertEqual(sample_rate, 44100)
         self.assertEqual(mixed_audio.ndim, 2)
-        self.assertEqual(mixed_audio.shape, (44100 * 4, 2))  # Full length since restarted
+        self.assertEqual(
+            mixed_audio.shape, (44100 * 4, 2)
+        )  # Full length since restarted
         # Check normalization and mix: recorded waveform set to RMS 0.15, then mixed
         expected_recorded = 0.15
         expected_mix = expected_recorded * 0.9
-        self.assertTrue(np.allclose(mixed_audio[:44100*2, :], expected_mix))
-        self.assertTrue(np.allclose(mixed_audio[44100*2:, :], 0.0))
+        self.assertTrue(np.allclose(mixed_audio[: 44100 * 2, :], expected_mix))
+        self.assertTrue(np.allclose(mixed_audio[44100 * 2 :, :], 0.0))
 
     def test_recording_is_resampled_to_match_playback_rate(self):
         self.model.selected_path = Path("/tmp/song.mp4")

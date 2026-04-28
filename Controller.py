@@ -2,6 +2,8 @@
 """
 Karaoke app controller and application entrypoint.
 """
+# pylint: disable=invalid-name,import-error
+
 import sys
 import time
 from typing import Optional
@@ -16,7 +18,7 @@ from Model import KaraokeModel, AudioRecorder
 from View import KaraokeView
 
 
-class KaraokeController:
+class KaraokeController:  # pylint: disable=too-many-instance-attributes
     """Controller that coordinates model state and view interactions."""
 
     def __init__(self, model: KaraokeModel, view: KaraokeView):
@@ -64,7 +66,7 @@ class KaraokeController:
         self.model.songs = self.model.list_songs()
         self.view.set_song_list(self.model.songs)
         if not self.model.songs:
-            self.view.set_status('No songs found in the Figures folder')
+            self.view.set_status("No songs found in the Figures folder")
 
     def on_song_selected(self, song_name: str) -> None:
         """
@@ -81,12 +83,12 @@ class KaraokeController:
             self.on_stop()
         if self.model.set_selected_song(song_name):
             self.view.load_video(str(self.model.selected_path))
-            self.view.set_status(f'Selected: {song_name}')
+            self.view.set_status(f"Selected: {song_name}")
             self.model.load_audio_track()
             self.playback_position_ms = 0
             self.view.clear_video()
         else:
-            self.view.set_status('Unable to select song')
+            self.view.set_status("Unable to select song")
 
     def on_play(self) -> None:
         """
@@ -103,7 +105,7 @@ class KaraokeController:
             self.resume_playback()
             return
         if self.model.selected_path is None:
-            self.view.set_status('Select a song before pressing Play')
+            self.view.set_status("Select a song before pressing Play")
             return
         self.start_playback()
 
@@ -125,7 +127,7 @@ class KaraokeController:
             self.video_capture = None
         self.video_capture = cv2.VideoCapture(str(self.model.selected_path))
         if not self.video_capture.isOpened():
-            self.view.set_status('Unable to open video file')
+            self.view.set_status("Unable to open video file")
             return False
         fps = self.video_capture.get(cv2.CAP_PROP_FPS) or 25.0
         self.video_frame_interval = max(1, int(1000 / fps))
@@ -145,25 +147,27 @@ class KaraokeController:
             None
         """
         if not self.model.load_audio_track():
-            self.view.set_status('Unable to load audio track')
+            self.view.set_status("Unable to load audio track")
             return
         if not self._open_video_capture(self.playback_position_ms):
             return
         self.seek_start_ms = self.playback_position_ms
         self.is_playing = True
         self.is_paused = False
-        self.view.play_button.setText('Pause')
+        self.view.play_button.setText("Pause")
         self.view.timer.start(100)
         try:
-            start_sample = int(round(self.playback_position_ms * self.model.sample_rate / 1000.0))
+            start_sample = int(
+                round(self.playback_position_ms * self.model.sample_rate / 1000.0)
+            )
             sd.play(self.model.audio_data[start_sample:], self.model.sample_rate)
-        except Exception:
-            self.view.set_status('Audio playback failed')
+        except Exception:  # pylint: disable=broad-exception-caught
+            self.view.set_status("Audio playback failed")
             return
         self.play_start_time = time.monotonic()
         self.video_timer.start(self.video_frame_interval)
         self._show_next_frame()
-        self.view.set_status('Playing')
+        self.view.set_status("Playing")
 
     def resume_playback(self) -> None:
         """
@@ -174,7 +178,7 @@ class KaraokeController:
             None
         """
         if self.model.selected_path is None:
-            self.view.set_status('Select a song before pressing Play')
+            self.view.set_status("Select a song before pressing Play")
             return
         if self.is_recording and self.record_paused:
             self.recorder.resume()
@@ -193,15 +197,17 @@ class KaraokeController:
             elapsed_ms = int((time.monotonic() - self.play_start_time) * 1000)
             self.playback_position_ms = self.seek_start_ms + elapsed_ms
         elif self.video_capture is not None:
-            self.playback_position_ms = int(self.video_capture.get(cv2.CAP_PROP_POS_MSEC))
+            self.playback_position_ms = int(
+                self.video_capture.get(cv2.CAP_PROP_POS_MSEC)
+            )
         self.play_start_time = 0.0
         self.video_timer.stop()
         self.view.timer.stop()
         sd.stop()
         self.is_playing = False
         self.is_paused = True
-        self.view.play_button.setText('Play')
-        self.view.set_status('Paused')
+        self.view.play_button.setText("Play")
+        self.view.set_status("Paused")
         if self.is_recording and not self.record_paused:
             self.recorder.pause()
             self.record_paused = True
@@ -226,9 +232,9 @@ class KaraokeController:
         self.is_paused = False
         self.record_paused = False
         self.playback_position_ms = 0
-        self.view.play_button.setText('Play')
-        self.view.record_button.setText('Record')
-        self.view.set_status('Ready')
+        self.view.play_button.setText("Play")
+        self.view.record_button.setText("Record")
+        self.view.set_status("Ready")
         self.view.clear_video()
 
     def on_record(self) -> None:
@@ -243,10 +249,10 @@ class KaraokeController:
             self.on_stop()
             return
         if self.model.selected_path is None:
-            self.view.set_status('Select a song before recording')
+            self.view.set_status("Select a song before recording")
             return
         if not self.model.load_audio_track():
-            self.view.set_status('Unable to load audio track')
+            self.view.set_status("Unable to load audio track")
             return
         if not self._open_video_capture(self.playback_position_ms):
             return
@@ -256,16 +262,18 @@ class KaraokeController:
         self.is_playing = True
         self.is_paused = False
         self.seek_start_ms = self.playback_position_ms
-        self.view.record_button.setText('Stop Recording')
-        self.view.play_button.setText('Pause')
-        self.view.set_status('Recording...')
+        self.view.record_button.setText("Stop Recording")
+        self.view.play_button.setText("Pause")
+        self.view.set_status("Recording...")
         self.view.timer.start(100)
         self.video_timer.start(self.video_frame_interval)
         try:
-            start_sample = int(round(self.playback_position_ms * self.model.sample_rate / 1000.0))
+            start_sample = int(
+                round(self.playback_position_ms * self.model.sample_rate / 1000.0)
+            )
             sd.play(self.model.audio_data[start_sample:], self.model.sample_rate)
-        except Exception:
-            self.view.set_status('Audio playback failed')
+        except Exception:  # pylint: disable=broad-exception-caught
+            self.view.set_status("Audio playback failed")
             return
         self.play_start_time = time.monotonic()
         self._show_next_frame()
@@ -282,8 +290,8 @@ class KaraokeController:
         self.model.save_recording(recording)
         self.is_recording = False
         self.record_paused = False
-        self.view.record_button.setText('Record')
-        self.view.set_status('Recording saved')
+        self.view.record_button.setText("Record")
+        self.view.set_status("Recording saved")
 
     def on_playback_recording(self) -> None:
         """
@@ -294,17 +302,17 @@ class KaraokeController:
             None
         """
         if not self.model.has_recording():
-            self.view.set_status('No recording available')
+            self.view.set_status("No recording available")
             return
         if self.model.selected_path is None:
-            self.view.set_status('Select a song before playback')
+            self.view.set_status("Select a song before playback")
             return
         if self.is_playing or self.is_recording or self.is_paused:
             self.on_stop()
         self.view.clear_video()
-        self.view.set_status('Select a song to start video')
+        self.view.set_status("Select a song to start video")
         if not self.model.load_audio_track():
-            self.view.set_status('Unable to load audio track')
+            self.view.set_status("Unable to load audio track")
             return
         self.playback_position_ms = 0
         if not self._open_video_capture(self.playback_position_ms):
@@ -312,22 +320,22 @@ class KaraokeController:
         self.seek_start_ms = self.playback_position_ms
         self.is_playing = True
         self.is_paused = False
-        self.view.play_button.setText('Pause')
+        self.view.play_button.setText("Pause")
         self.view.timer.start(100)
         mixed_audio = self._prepare_combined_audio(self.playback_position_ms)
         if mixed_audio is None:
-            self.view.set_status('Unable to play combined audio')
+            self.view.set_status("Unable to play combined audio")
             return
         try:
             sd.play(mixed_audio, self.model.sample_rate)
-        except Exception:
-            self.view.set_status('Playback of recording failed')
+        except Exception:  # pylint: disable=broad-exception-caught
+            self.view.set_status("Playback of recording failed")
             return
         self.play_start_time = time.monotonic()
         self.video_timer.start(self.video_frame_interval)
         self.view.update_progress(0, self.video_length_ms)
         self._show_next_frame()
-        self.view.set_status('Playing recorded performance')
+        self.view.set_status("Playing recorded performance")
 
     def _prepare_combined_audio(self, offset_ms: int) -> Optional[np.ndarray]:
         """
@@ -365,7 +373,10 @@ class KaraokeController:
 
         if recorded_segment.shape[0] < original_segment.shape[0]:
             padding = np.zeros(
-                (original_segment.shape[0] - recorded_segment.shape[0], recorded_segment.shape[1]),
+                (
+                    original_segment.shape[0] - recorded_segment.shape[0],
+                    recorded_segment.shape[1],
+                ),
                 dtype=recorded_segment.dtype,
             )
             recorded_segment = np.vstack((recorded_segment, padding))
@@ -421,9 +432,15 @@ class KaraokeController:
         target_length = int(round(duration_seconds * target_rate))
         resampled = np.zeros((target_length, recorded_audio.shape[1]), dtype=np.float32)
         for channel in range(recorded_audio.shape[1]):
-            source_times = np.linspace(0.0, duration_seconds, num=recorded_audio.shape[0], endpoint=False)
-            target_times = np.linspace(0.0, duration_seconds, num=target_length, endpoint=False)
-            resampled[:, channel] = np.interp(target_times, source_times, recorded_audio[:, channel])
+            source_times = np.linspace(
+                0.0, duration_seconds, num=recorded_audio.shape[0], endpoint=False
+            )
+            target_times = np.linspace(
+                0.0, duration_seconds, num=target_length, endpoint=False
+            )
+            resampled[:, channel] = np.interp(
+                target_times, source_times, recorded_audio[:, channel]
+            )
         return resampled
 
     def _show_next_frame(self) -> None:
@@ -450,7 +467,11 @@ class KaraokeController:
             success, frame = self.video_capture.read()
         else:
             success, frame = self.video_capture.read()
-            while success and int(self.video_capture.get(cv2.CAP_PROP_POS_MSEC)) < desired_ms - self.video_frame_interval:
+            while (
+                success
+                and int(self.video_capture.get(cv2.CAP_PROP_POS_MSEC))
+                < desired_ms - self.video_frame_interval
+            ):
                 success, frame = self.video_capture.read()
         if not success:
             self.on_stop()
@@ -490,5 +511,5 @@ def main() -> None:
     sys.exit(app.exec_())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

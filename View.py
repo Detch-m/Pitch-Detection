@@ -2,6 +2,8 @@
 """
 Karaoke app view layer for song selection, video display, and playback controls.
 """
+# pylint: disable=invalid-name,import-error
+
 from pathlib import Path
 from typing import List
 
@@ -9,10 +11,18 @@ import cv2
 import numpy as np
 from PyQt5.QtCore import QTimer, Qt, pyqtSignal
 from PyQt5.QtGui import QFont, QImage, QPixmap
-from PyQt5.QtWidgets import QLabel, QListWidget, QPushButton, QProgressBar, QVBoxLayout, QHBoxLayout, QWidget
+from PyQt5.QtWidgets import (
+    QLabel,
+    QListWidget,
+    QPushButton,
+    QProgressBar,
+    QVBoxLayout,
+    QHBoxLayout,
+    QWidget,
+)
 
 
-class KaraokeView(QWidget):
+class KaraokeView(QWidget):  # pylint: disable=too-many-instance-attributes
     """View layer that displays the song list, video widget, and player controls."""
 
     play_pressed = pyqtSignal()
@@ -34,11 +44,11 @@ class KaraokeView(QWidget):
         """
         super().__init__()
         self.model = model
-        self.setWindowTitle('Mister Microphone')
+        self.setWindowTitle("Mister Microphone")
         self.setGeometry(100, 100, 1200, 900)
-        self.video_label = QLabel('Select a song to load video')
+        self.video_label = QLabel("Select a song to load video")
         self.video_label.setAlignment(Qt.AlignCenter)
-        self.video_label.setStyleSheet('background-color: black; color: white;')
+        self.video_label.setStyleSheet("background-color: black; color: white;")
         self._build_ui()
         self.timer = QTimer(self)
 
@@ -53,14 +63,14 @@ class KaraokeView(QWidget):
         self.song_list = QListWidget()
         self.song_list.currentItemChanged.connect(self._on_song_selection)
 
-        heading = QLabel('Choose a song from the list and press Play')
-        heading.setFont(QFont('Arial', 20, QFont.Bold))
+        heading = QLabel("Choose a song from the list and press Play")
+        heading.setFont(QFont("Arial", 20, QFont.Bold))
         heading.setAlignment(Qt.AlignCenter)
 
-        self.play_button = QPushButton('Play')
-        self.record_button = QPushButton('Record')
-        self.stop_button = QPushButton('Stop')
-        self.playback_button = QPushButton('Playback Recording')
+        self.play_button = QPushButton("Play")
+        self.record_button = QPushButton("Record")
+        self.stop_button = QPushButton("Stop")
+        self.playback_button = QPushButton("Playback Recording")
 
         self.play_button.clicked.connect(self.play_pressed.emit)
         self.record_button.clicked.connect(self.record_pressed.emit)
@@ -68,11 +78,16 @@ class KaraokeView(QWidget):
         self.playback_button.clicked.connect(self.playback_pressed.emit)
 
         control_layout = QHBoxLayout()
-        for button in [self.play_button, self.record_button, self.stop_button, self.playback_button]:
+        for button in [
+            self.play_button,
+            self.record_button,
+            self.stop_button,
+            self.playback_button,
+        ]:
             button.setMinimumHeight(50)
             control_layout.addWidget(button)
 
-        self.status_label = QLabel('Ready')
+        self.status_label = QLabel("Ready")
         self.status_label.setAlignment(Qt.AlignCenter)
 
         self.progress = QProgressBar()
@@ -82,7 +97,7 @@ class KaraokeView(QWidget):
         video_layout.addWidget(self.video_label)
 
         list_layout = QVBoxLayout()
-        list_layout.addWidget(QLabel('Available Songs'))
+        list_layout.addWidget(QLabel("Available Songs"))
         list_layout.addWidget(self.song_list)
 
         main_layout = QVBoxLayout()
@@ -98,7 +113,7 @@ class KaraokeView(QWidget):
         main_layout.addWidget(self.status_label)
         self.setLayout(main_layout)
 
-    def _on_song_selection(self, current, previous=None) -> None:
+    def _on_song_selection(self, _current, _previous=None) -> None:
         """
         Summary:
             Handle song selection from the view.
@@ -138,7 +153,7 @@ class KaraokeView(QWidget):
             The selected song name or empty string if none.
         """
         item = self.song_list.currentItem()
-        return item.text() if item is not None else ''
+        return item.text() if item is not None else ""
 
     def set_status(self, text: str) -> None:
         """
@@ -164,8 +179,8 @@ class KaraokeView(QWidget):
         Returns:
             None
         """
-        self.video_label.setText(f'Loaded: {Path(path).name}')
-        self.video_label.setStyleSheet('background-color: black; color: white;')
+        self.video_label.setText(f"Loaded: {Path(path).name}")
+        self.video_label.setStyleSheet("background-color: black; color: white;")
 
     def set_video_frame(self, frame: np.ndarray) -> None:
         """
@@ -181,10 +196,14 @@ class KaraokeView(QWidget):
         target_width = self.video_label.width() or frame.shape[1]
         target_height = self.video_label.height() or frame.shape[0]
         if frame.shape[1] != target_width or frame.shape[0] != target_height:
-            frame = cv2.resize(frame, (target_width, target_height), interpolation=cv2.INTER_AREA)
+            frame = cv2.resize(
+                frame, (target_width, target_height), interpolation=cv2.INTER_AREA
+            )
         height, width, channels = frame.shape
         bytes_per_line = channels * width
-        image = QImage(frame.data, width, height, bytes_per_line, QImage.Format.Format_BGR888)
+        image = QImage(
+            frame.data, width, height, bytes_per_line, QImage.Format.Format_BGR888
+        )
         pixmap = QPixmap.fromImage(image)
         self.video_label.setPixmap(pixmap)
 
@@ -197,8 +216,8 @@ class KaraokeView(QWidget):
             None
         """
         self.video_label.setPixmap(QPixmap())
-        self.video_label.setText('Select a song to load video')
-        self.video_label.setStyleSheet('background-color: black; color: white;')
+        self.video_label.setText("Select a song to load video")
+        self.video_label.setStyleSheet("background-color: black; color: white;")
 
     def update_progress(self, position_ms: int, duration_ms: int) -> None:
         """
@@ -218,6 +237,8 @@ class KaraokeView(QWidget):
         self.progress.setValue(int(ratio * 100))
         current_seconds = position_ms // 1000
         duration_seconds = duration_ms // 1000
-        self.status_label.setText(
-            f"{current_seconds // 60:02d}:{current_seconds % 60:02d} / {duration_seconds // 60:02d}:{duration_seconds % 60:02d}"
+        time_str = (
+            f"{current_seconds // 60:02d}:{current_seconds % 60:02d} / "
+            f"{duration_seconds // 60:02d}:{duration_seconds % 60:02d}"
         )
+        self.status_label.setText(time_str)
