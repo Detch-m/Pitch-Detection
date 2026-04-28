@@ -26,7 +26,7 @@ It uses a pitch detection algorithm to score karaoke singing. It requires .wav o
 
 When starting your first run of the `main.py` you will encounter that there are no songs in the list. The user can add their own songs into the application through the `Songs` folder. The songs should be `.mp4` format for the system to work best. Non-mp4 files will not show up on the left tab.
 
-1. Getting your first audiofile. The user may find it helpful to head to websites like `https://media.ytmp3.gg/youtube-to-mp4-converter` to convert the song they want to mp4 and put it into the folder to get it started. The YouTube channel SingKing or other Karaoke song providers on the internt are good places to start.
+1. Getting your first audiofile. The user may find it helpful to head to websites like `https://media.ytmp3.gg/youtube-to-mp4-converter` to convert the song they want to mp4 and put it into the folder to get it started. The YouTube channel SingKing or other Karaoke song providers on the internet are good places to start.
 2. Setting up your song list in `Songs` and try running `main.py` again
 
 ## Recording your first recording and Your first Score
@@ -37,10 +37,10 @@ When starting your first run of the `main.py` you will encounter that there are 
 
 ## Unit Testing
 ### Karaoke Scorer and Scoring system
-- Download itim_perfect.wav (sample user audio) needed to test. It is located in the `tests` folder
+- Download `itim_perfect.wav` (sample user audio) needed to test. It is located in the `tests` folder
 - Find an acapella cover of Perfect by Ed Sheeran and convert it to a .wav file using the method mentioned above.
-- Rename the file to PerfectVocals or adjust the filename in karaoke_scorer_test.py to align with whatever filename you chose
-- Run the karaoke_scorer_test file
+- Rename the file to `PerfectVocals.mp4`/.wav or adjust the filename in `karaoke_scorer_test.py` to align with whatever filename you chose
+- Run the `karaoke_scorer_test.py` file
 - To test out the system more, the user can find and record a variety of test files aganist a song's vocal reference files.
 ### Main MVC tests
 - Located in the tests folder
