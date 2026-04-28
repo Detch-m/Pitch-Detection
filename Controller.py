@@ -89,3 +89,22 @@ def on_play(self) -> None:
             self.view.set_status("Select a song before pressing Play")
             return
         self.start_playback()
+def _open_video_capture(self, start_ms: int = 0) -> bool:
+        """Open the OpenCV video capture and set the desired start position."""
+        if self.model.selected_path is None:
+            return False
+        if self.video_capture is not None:
+            self.video_capture.release()
+            self.video_capture = None
+        self.video_capture = cv2.VideoCapture(str(self.model.selected_path))
+        if not self.video_capture.isOpened():
+            self.view.set_status("Unable to open video file")
+            return False
+        fps = self.video_capture.get(cv2.CAP_PROP_FPS) or 25.0
+        self.video_frame_interval = max(1, int(1000 / fps))
+        frame_count = self.video_capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0
+        self.video_length_ms = int(frame_count / fps * 1000)
+        self.video_timer.setInterval(self.video_frame_interval)
+        if start_ms > 0:
+            self.video_capture.set(cv2.CAP_PROP_POS_MSEC, float(start_ms))
+        return True
