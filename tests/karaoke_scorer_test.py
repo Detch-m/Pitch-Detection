@@ -1,4 +1,4 @@
-from signal_processing import PitchScoring
+from karaoke_scorer import PitchScoring
 
 # Users should change the "user" section to test their attempt on the Song "Perfect"
 # If the reference song and user section can both be swapped for any .wav file or .mp4 file
