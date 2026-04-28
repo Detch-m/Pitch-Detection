@@ -23,8 +23,8 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
         Initialize the karaoke controller with model and view.
 
         Args:
-            model (KaraokeModel): The model instance.
-            view (KaraokeView): The view instance.
+            model (KaraokeModel): The model instance of the KaraokeModel class
+            view (KaraokeView): The view instance of the KaraokeView class
 
         """
         self.model = model
@@ -34,6 +34,7 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
         self.view.stop_pressed.connect(self.on_stop)
         self.view.playback_pressed.connect(self.on_playback_recording)
         self.view.song_selected.connect(self.on_song_selected)
+        self.view.plot_pressed.connect(self.on_plot_requested)
         self.view.timer.timeout.connect(self.update_ui)
         self.video_capture = None
         self.video_frame_interval = 40
@@ -91,6 +92,23 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
             self.view.set_status("Select a song before pressing Play")
             return
         self.start_playback()
+
+    def on_plot_requested(self) -> None:
+        """
+        Command the model to generate and display the matplotlib pitch comparison.
+        """
+        if not self.model.has_recording():
+            self.view.set_status("No recording available to plot")
+            return
+            
+        self.view.set_status("Generating pitch visualization...")
+        
+        try:
+            # Instruct the model to run the plotting method from karaoke_scorer.py
+            self.model.generate_pitch_plot()
+            self.view.set_status("Ready")
+        except Exception:
+            self.view.set_status("Unable to generate plot")
 
     def _open_video_capture(self, start_ms: int = 0) -> bool:
         """
@@ -251,12 +269,20 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
         self.view.record_button.setText("Record")
         self.view.set_status("Recording saved")
 
+        self.view.set_status("Calculating pitch score...(this will take a bit)")
+        try:
+            score = self.model.calculate_score()
+            self.view.display_score(score)
+            self.view.set_status("Scored")
+        except Exception as e:
+            self.view.display_score(None)
+            self.view.set_status("Scoring failed")
+
     def on_playback_recording(self) -> None:
         """
         Play the selected video together with the user's saved recording from the start.
 
-        Returns:
-            None
+        Catch
         """
         if not self.model.has_recording():
             self.view.set_status("No recording available")

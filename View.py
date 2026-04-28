@@ -21,30 +21,37 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-
 class KaraokeView(QWidget):  # pylint: disable=too-many-instance-attributes
-    """View layer that displays the song list, video widget, and player controls."""
+    """
+    View layer that displays the song list, video widget, and player controls.
+
+    Attributes:
+        play_pressed, 
+        record_pressed,
+        stop_pressed,
+        playback_pressed,
+        song_selected,
+        score_pressed,
+    """
 
     play_pressed = pyqtSignal()
     record_pressed = pyqtSignal()
     stop_pressed = pyqtSignal()
     playback_pressed = pyqtSignal()
     song_selected = pyqtSignal(str)
+    plot_pressed = pyqtSignal(int)
 
     def __init__(self, model) -> None:
         """
-        Summary:
-            Initialize the karaoke view with the model.
+        Initialize the karaoke view with the model.
 
         Args:
             model: The model instance for the view.
 
-        Returns:
-            None
         """
         super().__init__()
         self.model = model
-        self.setWindowTitle("Mister Microphone")
+        self.setWindowTitle("Karaoke")
         self.setGeometry(100, 100, 1200, 900)
         self.video_label = QLabel("Select a song to load video")
         self.video_label.setAlignment(Qt.AlignCenter)
@@ -54,11 +61,7 @@ class KaraokeView(QWidget):  # pylint: disable=too-many-instance-attributes
 
     def _build_ui(self) -> None:
         """
-        Summary:
-            Create the main user interface widgets.
-
-        Returns:
-            None
+        Create the main user interface widgets.
         """
         self.song_list = QListWidget()
         self.song_list.currentItemChanged.connect(self._on_song_selection)
@@ -71,11 +74,15 @@ class KaraokeView(QWidget):  # pylint: disable=too-many-instance-attributes
         self.record_button = QPushButton("Record")
         self.stop_button = QPushButton("Stop")
         self.playback_button = QPushButton("Playback Recording")
+        self.score_label = QLabel("Score: --")
+        self.plot_button = QPushButton("Show Pitch Plot")
 
         self.play_button.clicked.connect(self.play_pressed.emit)
         self.record_button.clicked.connect(self.record_pressed.emit)
         self.stop_button.clicked.connect(self.stop_pressed.emit)
         self.playback_button.clicked.connect(self.playback_pressed.emit)
+        self.plot_button.clicked.connect(self.plot_pressed.emit)
+        self.plot_button.setEnabled(False)
 
         control_layout = QHBoxLayout()
         for button in [
@@ -83,6 +90,8 @@ class KaraokeView(QWidget):  # pylint: disable=too-many-instance-attributes
             self.record_button,
             self.stop_button,
             self.playback_button,
+            self.score_label,
+            self.plot_button,
         ]:
             button.setMinimumHeight(50)
             control_layout.addWidget(button)
@@ -115,15 +124,11 @@ class KaraokeView(QWidget):  # pylint: disable=too-many-instance-attributes
 
     def _on_song_selection(self, _current, _previous=None) -> None:
         """
-        Summary:
-            Handle song selection from the view.
+        Handle song selection from the view.
 
         Args:
             current: The currently selected item.
             previous: The previously selected item.
-
-        Returns:
-            None
         """
         item = self.song_list.currentItem()
         if item is not None:
@@ -131,14 +136,10 @@ class KaraokeView(QWidget):  # pylint: disable=too-many-instance-attributes
 
     def set_song_list(self, songs: List[str]) -> None:
         """
-        Summary:
-            Populate the song list with available MP4 titles.
+        Populate the song list with available MP4 titles.
 
         Args:
             songs (List[str]): List of song filenames.
-
-        Returns:
-            None
         """
         self.song_list.clear()
         for song in songs:
@@ -146,8 +147,7 @@ class KaraokeView(QWidget):  # pylint: disable=too-many-instance-attributes
 
     def get_selected_song_name(self) -> str:
         """
-        Summary:
-            Return the currently selected song title.
+        Return the currently selected song title.
 
         Returns:
             The selected song name or empty string if none.
@@ -157,41 +157,32 @@ class KaraokeView(QWidget):  # pylint: disable=too-many-instance-attributes
 
     def set_status(self, text: str) -> None:
         """
-        Summary:
-            Update the status label text.
+        Update the status label text.
 
         Args:
             text (str): The status text to display.
 
-        Returns:
-            None
         """
         self.status_label.setText(text)
 
     def load_video(self, path: str) -> None:
         """
-        Summary:
-            Show a placeholder for the selected video file.
+        Show a placeholder for the selected video file.
 
         Args:
             path (str): The path to the video file.
 
-        Returns:
-            None
         """
         self.video_label.setText(f"Loaded: {Path(path).name}")
         self.video_label.setStyleSheet("background-color: black; color: white;")
 
     def set_video_frame(self, frame: np.ndarray) -> None:
         """
-        Summary:
-            Render a video frame into the video display widget.
+        Render a video frame into the video display widget.
 
         Args:
             frame (np.ndarray): The video frame as a numpy array.
 
-        Returns:
-            None
         """
         target_width = self.video_label.width() or frame.shape[1]
         target_height = self.video_label.height() or frame.shape[0]
@@ -209,11 +200,7 @@ class KaraokeView(QWidget):  # pylint: disable=too-many-instance-attributes
 
     def clear_video(self) -> None:
         """
-        Summary:
-            Clear the video display and show the default placeholder.
-
-        Returns:
-            None
+        Clear the video display and show the default placeholder.
         """
         self.video_label.setPixmap(QPixmap())
         self.video_label.setText("Select a song to load video")
@@ -221,15 +208,12 @@ class KaraokeView(QWidget):  # pylint: disable=too-many-instance-attributes
 
     def update_progress(self, position_ms: int, duration_ms: int) -> None:
         """
-        Summary:
-            Update the progress bar using media position and duration.
+        Update the progress bar using media position and duration.
 
         Args:
             position_ms (int): Current position in milliseconds.
             duration_ms (int): Total duration in milliseconds.
 
-        Returns:
-            None
         """
         if duration_ms <= 0:
             return
@@ -242,3 +226,18 @@ class KaraokeView(QWidget):  # pylint: disable=too-many-instance-attributes
             f"{duration_seconds // 60:02d}:{duration_seconds % 60:02d}"
         )
         self.status_label.setText(time_str)
+    
+    def display_score(self, score: float = None):
+        """
+        Updates the UI to show the user's pitch score.
+        
+        Args:
+            score (float): The calculated score, or None to reset the display.
+        """
+        if score is None:
+            self.score_label.setText("Score: --")
+            self.plot_button.setEnabled(False)
+        else:
+            # Format the float to one decimal place for a cleaner UI
+            self.score_label.setText(f"Score: {score:.1f} / 100")
+            self.plot_button.setEnabled(True)

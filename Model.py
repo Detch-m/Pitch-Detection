@@ -16,6 +16,8 @@ import numpy as np
 import sounddevice as sd
 import soundfile as sf
 
+from karaoke_scorer import PitchScoring
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FIGURES_DIR = PROJECT_ROOT / "Pitch-Detection" / "New Figures"
 RECORDING_FILE = PROJECT_ROOT / "recording.wav"
@@ -27,14 +29,10 @@ class KaraokeModel:  # pylint: disable=too-many-instance-attributes
 
     def __init__(self, figures_dir: Path = FIGURES_DIR):
         """
-        Summary:
-            Initialize the karaoke model with the figures directory.
+        Initialize the karaoke model with the figures directory.
 
         Args:
             figures_dir (Path): The directory containing MP4 files. Defaults to FIGURES_DIR.
-
-        Returns:
-            None
         """
         self.figures_dir = Path(figures_dir)
         self.songs: List[str] = self.list_songs()
@@ -47,8 +45,7 @@ class KaraokeModel:  # pylint: disable=too-many-instance-attributes
 
     def list_songs(self) -> List[str]:
         """
-        Summary:
-            Return the list of available MP4 song files.
+        Return the list of available MP4 song files.
 
         Returns:
             A sorted list of MP4 filenames found in the figures directory.
@@ -65,8 +62,7 @@ class KaraokeModel:  # pylint: disable=too-many-instance-attributes
 
     def set_selected_song(self, song_name: str) -> bool:
         """
-        Summary:
-            Select the named song if the file exists.
+        Select the named song if the file exists.
 
         Args:
             song_name (str): The filename of the song to select.
@@ -85,8 +81,7 @@ class KaraokeModel:  # pylint: disable=too-many-instance-attributes
 
     def load_audio_track(self) -> bool:
         """
-        Summary:
-            Extract the MP4 audio track using FFmpeg and cache it as stereo audio.
+        Extract the MP4 audio track using FFmpeg and cache it as stereo audio.
 
         Returns:
             True if audio was extracted successfully; otherwise False.
@@ -133,8 +128,7 @@ class KaraokeModel:  # pylint: disable=too-many-instance-attributes
         self, recording: np.ndarray, path: Optional[Path] = None
     ) -> bool:
         """
-        Summary:
-            Save the recorded vocals to a WAV file and cache the data.
+        Save the recorded vocals to a WAV file and cache the data.
 
         Args:
             recording (np.ndarray): The recorded waveform.
@@ -153,29 +147,69 @@ class KaraokeModel:  # pylint: disable=too-many-instance-attributes
 
     def has_recording(self) -> bool:
         """
-        Summary:
-            Return True when a recording is available.
+        Return True when a recording is available.
 
         Returns:
             True if a recording exists; otherwise False.
         """
         return self.recorded_audio is not None and len(self.recorded_audio) > 0
+    
+    def calculate_score(self, level = 0) -> Optional[float]:
+        """
+        Executes the pitch analysis pipeline to score the user's vocal performance.
 
+        Args:
+            level (int): The difficulty level for scoring (0 for easy, 1 for hard).
+
+        Returns:
+            The calculated score as a float, or None if the calculation fails.
+        """
+        try:
+            scorer = PitchScoring(
+                ref_file=str(self.selected_path),
+                user_file=str(RECORDING_FILE)
+            )
+
+            scorer.process_files("pYIN")
+            scorer.align_tracks()
+            self.last_score = scorer.pitch_score(level)
+            return self.last_score
+
+        except Exception: # pylint: disable=broad-exception-caught
+            self.last_score = None
+            return None
+    
+    def generate_pitch_plot(self) -> bool:
+        """
+        Generates a matplotlib window comparing the reference and user pitch tracks.
+
+        Returns:
+            True if the plot was generated successfully; otherwise False.
+        """
+        if self.selected_path is None or not self.has_recording():
+            return False
+
+        try:
+            scorer = PitchScoring(
+                ref_file=str(self.selected_path),
+                user_file=str(RECORDING_FILE)
+            )
+            scorer.plot_results()
+            return True
+            
+        except Exception: # pylint: disable=broad-exception-caught
+            return False
 
 class AudioRecorder:
     """Helper that records microphone input until stopped or paused."""
 
     def __init__(self, sample_rate: int = 44100, channels: int = 1):
         """
-        Summary:
-            Initialize the audio recorder with sample rate and channels.
+        Initialize the audio recorder with sample rate and channels.
 
         Args:
             sample_rate (int): The sample rate for recording. Defaults to 44100.
             channels (int): The number of audio channels. Defaults to 1.
-
-        Returns:
-            None
         """
         self.sample_rate = sample_rate
         self.channels = channels
@@ -185,11 +219,7 @@ class AudioRecorder:
 
     def start(self) -> None:
         """
-        Summary:
-            Open the input stream and begin recording immediately.
-
-        Returns:
-            None
+        Open the input stream and begin recording immediately.
         """
         self._frames = []
         self._paused = False
@@ -202,22 +232,14 @@ class AudioRecorder:
 
     def pause(self) -> None:
         """
-        Summary:
-            Pause incoming recording without losing captured audio.
-
-        Returns:
-            None
+        Pause incoming recording without losing captured audio.
         """
         if self._stream is not None:
             self._paused = True
 
     def resume(self) -> None:
         """
-        Summary:
-            Resume recording after a pause.
-
-        Returns:
-            None
+        Resume recording after a pause.
         """
         if self._stream is not None:
             self._paused = False
