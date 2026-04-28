@@ -102,3 +102,50 @@ def _build_ui(self) -> None:
         main_layout.addWidget(self.progress)
         main_layout.addWidget(self.status_label)
         self.setLayout(main_layout)
+def _on_song_selection(self, current, previous=None) -> None:
+        """Handle song selection from the view.
+
+        Args:
+            current: The currently selected item.
+            previous: The previously selected item.
+
+        Returns:
+            None
+        """
+        item = self.song_list.currentItem()
+        if item is not None:
+            self.song_selected.emit(item.text())
+
+def set_song_list(self, songs: List[str]) -> None:
+        """Populate the song list with available MP4 titles.
+
+        Args:
+            songs (List[str]): List of song filenames.
+
+        Returns:
+            None
+        """
+        self.song_list.clear()
+        for song in songs:
+            self.song_list.addItem(song)
+
+def get_selected_song_name(self) -> str:
+        """Return the currently selected song title.
+
+        Returns:
+            The selected song name or empty string if none.
+        """
+        item = self.song_list.currentItem()
+        return item.text() if item is not None else ""
+
+def set_status(self, text: str) -> None:
+        """Update the status label text.
+
+        Args:
+            text (str): The status text to display.
+
+        Returns:
+            None
+        """
+        """Update the status label text."""
+        self.status_label.setText(text)
