@@ -364,3 +364,16 @@ def update_ui(self) -> None:
             return
         position_ms = int(self.video_capture.get(cv2.CAP_PROP_POS_MSEC))
         self.view.update_progress(position_ms, self.video_length_ms)
+def main() -> None:
+    """Application entry point for the karaoke app."""
+    app = QApplication(sys.argv)
+    model = KaraokeModel()
+    view = KaraokeView(model)
+    controller = KaraokeController(model, view)
+    controller.load_songs()
+    view.show()
+    sys.exit(app.exec_())
+
+
+if __name__ == "__main__":
+    main()
