@@ -4,15 +4,12 @@ Karaoke app controller and application entrypoint.
 """
 # pylint: disable=invalid-name,import-error
 
-import sys
 import time
 from typing import Optional
-
 import cv2
 import numpy as np
 import sounddevice as sd
 from PyQt5.QtCore import QTimer
-from PyQt5.QtWidgets import QApplication
 
 from Model import KaraokeModel, AudioRecorder
 from View import KaraokeView
@@ -23,15 +20,12 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
 
     def __init__(self, model: KaraokeModel, view: KaraokeView):
         """
-        Summary:
-            Initialize the karaoke controller with model and view.
+        Initialize the karaoke controller with model and view.
 
         Args:
             model (KaraokeModel): The model instance.
             view (KaraokeView): The view instance.
 
-        Returns:
-            None
         """
         self.model = model
         self.view = view
@@ -57,11 +51,7 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
 
     def load_songs(self) -> None:
         """
-        Summary:
-            Load the available songs into the view list.
-
-        Returns:
-            None
+        Load the available songs into the view list.
         """
         self.model.songs = self.model.list_songs()
         self.view.set_song_list(self.model.songs)
@@ -70,14 +60,11 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
 
     def on_song_selected(self, song_name: str) -> None:
         """
-        Summary:
-            Handle song selection from the view and reset active playback.
+        Handle song selection from the view and reset active playback.
 
         Args:
             song_name (str): The selected song name.
 
-        Returns:
-            None
         """
         if self.is_playing or self.is_paused or self.is_recording:
             self.on_stop()
@@ -92,11 +79,7 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
 
     def on_play(self) -> None:
         """
-        Summary:
-            Start playback, resume paused playback, or pause current playback.
-
-        Returns:
-            None
+        Start playback, resume paused playback, or pause current playback.
         """
         if self.is_playing and not self.is_paused:
             self.pause_playback()
@@ -111,8 +94,7 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
 
     def _open_video_capture(self, start_ms: int = 0) -> bool:
         """
-        Summary:
-            Open the OpenCV video capture and set the desired start position.
+        Open the OpenCV video capture and set the desired start position.
 
         Args:
             start_ms (int): Milliseconds offset to begin video playback.
@@ -140,11 +122,7 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
 
     def start_playback(self) -> None:
         """
-        Summary:
-            Begin video playback and immediate audio output from the selected song.
-
-        Returns:
-            None
+        Begin video playback and immediate audio output from the selected song.
         """
         if not self.model.load_audio_track():
             self.view.set_status("Unable to load audio track")
@@ -171,11 +149,7 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
 
     def resume_playback(self) -> None:
         """
-        Summary:
-            Resume playback from the point where it was paused.
-
-        Returns:
-            None
+        Resume playback from the point where it was paused.
         """
         if self.model.selected_path is None:
             self.view.set_status("Select a song before pressing Play")
@@ -187,11 +161,7 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
 
     def pause_playback(self) -> None:
         """
-        Summary:
-            Pause the active playback session and preserve the current position.
-
-        Returns:
-            None
+        Pause the active playback session and preserve the current position.
         """
         if self.play_start_time > 0:
             elapsed_ms = int((time.monotonic() - self.play_start_time) * 1000)
@@ -214,11 +184,7 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
 
     def on_stop(self) -> None:
         """
-        Summary:
-            Stop all playback and recording activity and reset playback state.
-
-        Returns:
-            None
+        Stop all playback and recording activity and reset playback state.
         """
         self.video_timer.stop()
         self.view.timer.stop()
@@ -239,11 +205,7 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
 
     def on_record(self) -> None:
         """
-        Summary:
-            Start or stop recording the user's voice while the song plays.
-
-        Returns:
-            None
+        Start or stop recording the user's voice while the song plays.
         """
         if self.is_recording:
             self.on_stop()
@@ -280,11 +242,7 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
 
     def _stop_recording(self) -> None:
         """
-        Summary:
-            Stop recording and save the captured audio to the model.
-
-        Returns:
-            None
+        Stop recording and save the captured audio to the model.
         """
         recording = self.recorder.stop()
         self.model.save_recording(recording)
@@ -295,8 +253,7 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
 
     def on_playback_recording(self) -> None:
         """
-        Summary:
-            Play the selected video together with the user's saved recording from the start.
+        Play the selected video together with the user's saved recording from the start.
 
         Returns:
             None
@@ -339,8 +296,7 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
 
     def _prepare_combined_audio(self, offset_ms: int) -> Optional[np.ndarray]:
         """
-        Summary:
-            Prepare a stereo mixed waveform of original audio plus the user's recording.
+        Prepare a stereo mixed waveform of original audio plus the user's recording.
 
         Args:
             offset_ms (int): The playback offset in milliseconds.
@@ -390,8 +346,7 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
 
     def _normalize_recording_volume(self, recorded_audio: np.ndarray) -> np.ndarray:
         """
-        Summary:
-            Normalize the user's recorded audio to produce a more consistent voice level.
+        Normalize the user's recorded audio to produce a more consistent voice level.
 
         Args:
             recorded_audio (np.ndarray): The recorded waveform.
@@ -410,8 +365,7 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
 
     def _resample_recording_if_needed(self, recorded_audio: np.ndarray) -> np.ndarray:
         """
-        Summary:
-            Resample the recorded audio to the current playback sample rate if necessary.
+        Resample the recorded audio to the current playback sample rate if necessary.
 
         Args:
             recorded_audio (np.ndarray): The recorded waveform.
@@ -445,11 +399,7 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
 
     def _show_next_frame(self) -> None:
         """
-        Summary:
-            Fetch the next video frame synced to the current audio playback time.
-
-        Returns:
-            None
+        Fetch the next video frame synced to the current audio playback time.
         """
         if self.video_capture is None:
             return
@@ -482,34 +432,9 @@ class KaraokeController:  # pylint: disable=too-many-instance-attributes
 
     def update_ui(self) -> None:
         """
-        Summary:
-            Refresh the playback progress indicator while media is active.
-
-        Returns:
-            None
+        Refresh the playback progress indicator while media is active.
         """
         if not self.is_playing or self.video_capture is None:
             return
         position_ms = int(self.video_capture.get(cv2.CAP_PROP_POS_MSEC))
         self.view.update_progress(position_ms, self.video_length_ms)
-
-
-def main() -> None:
-    """
-    Summary:
-        Application entry point for the karaoke app.
-
-    Returns:
-        None
-    """
-    app = QApplication(sys.argv)
-    model = KaraokeModel()
-    view = KaraokeView(model)
-    controller = KaraokeController(model, view)
-    controller.load_songs()
-    view.show()
-    sys.exit(app.exec_())
-
-
-if __name__ == "__main__":
-    main()
