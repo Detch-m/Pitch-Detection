@@ -178,3 +178,45 @@ def on_stop(self) -> None:
         self.view.record_button.setText("Record")
         self.view.set_status("Ready")
         self.view.clear_video()
+        
+def on_record(self) -> None:
+        """Start or stop recording the user's voice while the song plays."""
+        if self.is_recording:
+            self.on_stop()
+            return
+        if self.model.selected_path is None:
+            self.view.set_status("Select a song before recording")
+            return
+        if not self.model.load_audio_track():
+            self.view.set_status("Unable to load audio track")
+            return
+        if not self._open_video_capture(self.playback_position_ms):
+            return
+        self.recorder.start()
+        self.is_recording = True
+        self.record_paused = False
+        self.is_playing = True
+        self.is_paused = False
+        self.seek_start_ms = self.playback_position_ms
+        self.view.record_button.setText("Stop Recording")
+        self.view.play_button.setText("Pause")
+        self.view.set_status("Recording...")
+        self.view.timer.start(100)
+        self.video_timer.start(self.video_frame_interval)
+        try:
+            start_sample = int(round(self.playback_position_ms * self.model.sample_rate / 1000.0))
+            sd.play(self.model.audio_data[start_sample:], self.model.sample_rate)
+        except Exception:
+            self.view.set_status("Audio playback failed")
+            return
+        self.play_start_time = time.monotonic()
+        self._show_next_frame()
+
+def _stop_recording(self) -> None:
+        """Stop recording and save the captured audio to the model."""
+        recording = self.recorder.stop()
+        self.model.save_recording(recording)
+        self.is_recording = False
+        self.record_paused = False
+        self.view.record_button.setText("Record")
+        self.view.set_status("Recording saved")
