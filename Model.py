@@ -5,6 +5,7 @@ Karaoke app model and audio capture helpers.
 This module provides the karaoke data model for song selection,
 audio extraction, recording persistence, and microphone capture.
 """
+
 # pylint: disable=invalid-name,import-error
 
 from pathlib import Path
@@ -19,7 +20,8 @@ import soundfile as sf
 from karaoke_scorer import PitchScoring
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-FIGURES_DIR = PROJECT_ROOT / "Pitch-Detection" / "Songs"
+KARAOKE_DIR = PROJECT_ROOT / "Pitch-Detection" / "Songs" / "Karaoke-Tracks"
+VOCALS_DIR = PROJECT_ROOT / "Pitch-Detection" / "Songs" / "Vocals-Tracks"
 RECORDING_FILE = PROJECT_ROOT / "recording.wav"
 SUPPORTED_EXTENSIONS = [".mp4"]
 
@@ -27,17 +29,20 @@ SUPPORTED_EXTENSIONS = [".mp4"]
 class KaraokeModel:  # pylint: disable=too-many-instance-attributes
     """Model that tracks song selection, audio data, and recorded vocals."""
 
-    def __init__(self, figures_dir: Path = FIGURES_DIR):
+    def __init__(self, KARAOKE_DIR: Path = KARAOKE_DIR, VOCALS_DIR: Path = VOCALS_DIR):
         """
         Initialize the karaoke model with the figures directory.
 
         Args:
-            figures_dir (Path): The directory containing MP4 files. Defaults to FIGURES_DIR.
+            KARAOKE_DIR (Path): The directory containing MP4 files. Defaults to KARAOKE_DIR.
         """
-        self.figures_dir = Path(figures_dir)
+        self.KARAOKE_DIR = Path(KARAOKE_DIR)
+        self.VOCALS_DIR = Path(VOCALS_DIR)
         self.songs: List[str] = self.list_songs()
         self.selected_song: Optional[str] = None
         self.selected_path: Optional[Path] = None
+        self.selected_vocal_song: Optional[str] = None
+        self.selected_vocal_path: Optional[Path] = None
         self.audio_data: Optional[np.ndarray] = None
         self.sample_rate: int = 0
         self.recorded_audio: Optional[np.ndarray] = None
@@ -50,19 +55,26 @@ class KaraokeModel:  # pylint: disable=too-many-instance-attributes
         Returns:
             A sorted list of MP4 filenames found in the figures directory.
         """
-        if not self.figures_dir.exists():
+        if not self.KARAOKE_DIR.exists():
             return []
         return sorted(
             [
                 entry.name
-                for entry in self.figures_dir.iterdir()
+                for entry in self.KARAOKE_DIR.iterdir()
                 if entry.is_file() and entry.suffix.lower() in SUPPORTED_EXTENSIONS
             ]
         )
 
     def set_selected_song(self, song_name: str) -> bool:
         """
-        Select the named song if the file exists.
+        Select the named song if the file exists. It must exist in both the
+        Karaoke-Tracks folder and the Vocal-Tracks folder in order make the
+        rest of the code function. The selected song must have identical names
+        and file extensions. ~/Songs/Vocal-Tracks/Song_Name must also be named
+        ~/Songs/Karoake-Tracks/Song_Name. These two songs should not be identical.
+        One should be the instrumental (karaoke) and the other should be used for
+        the vocal scoring. Failing to do this will cause the score to be lower
+        than it should be.
 
         Args:
             song_name (str): The filename of the song to select.
@@ -70,12 +82,17 @@ class KaraokeModel:  # pylint: disable=too-many-instance-attributes
         Returns:
             True if the song exists and was selected; otherwise False.
         """
-        candidate = self.figures_dir / song_name
-        if candidate.is_file():
+        karaoke_candidate = self.KARAOKE_DIR / song_name
+        vocal_candiate = self.VOCALS_DIR / song_name
+        if karaoke_candidate.is_file() and vocal_candiate.is_file():
             self.selected_song = song_name
-            self.selected_path = candidate
+            self.selected_path = karaoke_candidate
+            self.selected_vocal_song = song_name
+            self.selected_vocal_path = vocal_candiate
             self.audio_data = None
             self.sample_rate = 0
+            print(self.selected_song, self.selected_path)
+            print(self.selected_vocal_song, self.selected_vocal_path)
             return True
         return False
 
@@ -153,8 +170,8 @@ class KaraokeModel:  # pylint: disable=too-many-instance-attributes
             True if a recording exists; otherwise False.
         """
         return self.recorded_audio is not None and len(self.recorded_audio) > 0
-    
-    def calculate_score(self, level = 0) -> Optional[float]:
+
+    def calculate_score(self, level=0) -> Optional[float]:
         """
         Executes the pitch analysis pipeline to score the user's vocal performance.
 
@@ -165,17 +182,16 @@ class KaraokeModel:  # pylint: disable=too-many-instance-attributes
             The calculated score as a float, or None if the calculation fails.
         """
         try:
-            scorer = PitchScoring(str(self.selected_path),str(RECORDING_FILE))
-
+            scorer = PitchScoring(str(self.selected_vocal_path), str(RECORDING_FILE))
             scorer.process_files("pYIN")
             scorer.align_tracks()
             self.last_score = scorer.pitch_score(level)
             return self.last_score
 
-        except Exception: # pylint: disable=broad-exception-caught
+        except Exception:  # pylint: disable=broad-exception-caught
             self.last_score = None
             return None
-    
+
     def generate_pitch_plot(self) -> bool:
         """
         Generates a matplotlib window comparing the reference and user pitch tracks.
@@ -187,12 +203,13 @@ class KaraokeModel:  # pylint: disable=too-many-instance-attributes
             return False
 
         try:
-            scorer = PitchScoring(str(self.selected_path),str(RECORDING_FILE))
+            scorer = PitchScoring(str(self.selected_path), str(RECORDING_FILE))
             scorer.plot_results()
             return True
-            
-        except Exception: # pylint: disable=broad-exception-caught
+
+        except Exception:  # pylint: disable=broad-exception-caught
             return False
+
 
 class AudioRecorder:
     """Helper that records microphone input until stopped or paused."""
